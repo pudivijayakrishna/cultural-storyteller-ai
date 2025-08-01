@@ -105,45 +105,47 @@ def generate_content():
         else:
             return jsonify({"error": "Invalid content_type. Must be 'poem' or 'story'"}), 400
         
-        # Create chat message
-        chat_message = [
-            ChatCompletionRequestMessage_UserParams(role="system", content=system_message),
-            ChatCompletionRequestMessage_UserParams(role="user", content=user_message)
-        ]
-        
         # Generate text with continuation loop
-        generated_text = ""
-        max_iterations = 10
-        iteration = 0
-        
-        while iteration < max_iterations:
-            print(f"Making API call to SarvamAI (iteration {iteration + 1})")
-            print(f"Using API key: {SARVAM_API_KEY[:10]}...")
-            print(f"Content type: {content_type}, Language: {language}")
-            
+        if content_type == 'story':
+            full_story = ""
+            max_story_length = 3000
+            # Initial request: ask the AI to end the story with [END]
+            chat_message = [
+                ChatCompletionRequestMessage_UserParams(role="system", content=system_message),
+                ChatCompletionRequestMessage_UserParams(role="user", content=user_message + " End the story with [END] when it is complete.")
+            ]
             chat_response = sarvam_client.chat.completions(messages=chat_message, temperature=temperature)
-            new_text = chat_response.choices[0].message.content
-            generated_text += new_text
-            
-            print(f"Received response: {len(new_text)} characters")
-            
-            if generated_text.strip().endswith(('.', '!', '?')):
-                break
-                
-            if content_type == 'story':
+            full_story += chat_response.choices[0].message.content
+            # Loop until [END] is found or max length reached
+            while "[END]" not in full_story and len(full_story) < max_story_length:
+                continuation_prompt = f"Continue the story from the last sentence: {full_story} End the story with [END] when it is complete."
                 chat_message = [
                     ChatCompletionRequestMessage_UserParams(role="system", content=system_message),
-                    ChatCompletionRequestMessage_UserParams(role="user", content=f"Continue the following story: {generated_text}")
+                    ChatCompletionRequestMessage_UserParams(role="user", content=continuation_prompt)
                 ]
-            else: # poem
+                chat_response = sarvam_client.chat.completions(messages=chat_message, temperature=temperature)
+                full_story += chat_response.choices[0].message.content
+            generated_text = full_story.replace("[END]", "").strip()
+        else:
+            generated_text = ""
+            max_iterations = 10
+            iteration = 0
+            while iteration < max_iterations:
+                print(f"Making API call to SarvamAI (iteration {iteration + 1})")
+                print(f"Using API key: {SARVAM_API_KEY[:10]}...")
+                print(f"Content type: {content_type}, Language: {language}")
+                chat_response = sarvam_client.chat.completions(messages=chat_message, temperature=temperature)
+                new_text = chat_response.choices[0].message.content
+                generated_text += new_text
+                print(f"Received response: {len(new_text)} characters")
+                if generated_text.strip().endswith(('.', '!', '?')):
+                    break
                 chat_message = [
                     ChatCompletionRequestMessage_UserParams(role="system", content=system_message),
                     ChatCompletionRequestMessage_UserParams(role="user", content=f"Continue the following poem: {generated_text}")
                 ]
-            iteration += 1
-        
-        # Format poem if needed
-        if content_type == 'poem':
+                iteration += 1
+            # Format poem if needed
             generated_text = format_poem(generated_text)
         
         # Generate audio
