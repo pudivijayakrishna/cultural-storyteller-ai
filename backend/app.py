@@ -10,7 +10,7 @@ import re
 import traceback
 
 # Load environment variables
-load_dotenv()
+# load_dotenv()  # Commented out due to .env file encoding issues
 
 app = Flask(__name__)
 
@@ -18,10 +18,22 @@ app = Flask(__name__)
 CORS(app, origins=["*"])
 
 # Get API key from environment variable
-SARVAM_API_KEY = os.getenv('SARVAM_API_KEY', 'YOUR_API_KEY_HERE')
+SARVAM_API_KEY = os.getenv('SARVAM_API_KEY', 'sk_wxjx9cp5_R2uM1pYIhBNyaNakZd51Pf6l')
+
+# Debug: Print API key status (without exposing the actual key)
+print(f"API Key Status: {'Set' if SARVAM_API_KEY != 'YOUR_API_KEY_HERE' else 'NOT SET'}")
+print(f"API Key Length: {len(SARVAM_API_KEY) if SARVAM_API_KEY != 'YOUR_API_KEY_HERE' else 'N/A'}")
+print(f"API Key starts with: {SARVAM_API_KEY[:10]}..." if SARVAM_API_KEY != 'YOUR_API_KEY_HERE' else 'N/A')
+if SARVAM_API_KEY == 'YOUR_API_KEY_HERE':
+    print("WARNING: SARVAM_API_KEY environment variable is not set!")
 
 # Initialize SarvamAI client
-sarvam_client = SarvamAI(api_subscription_key=SARVAM_API_KEY)
+try:
+    sarvam_client = SarvamAI(api_subscription_key=SARVAM_API_KEY)
+    print("SarvamAI client initialized successfully")
+except Exception as e:
+    print(f"Error initializing SarvamAI client: {e}")
+    sarvam_client = None
 
 @app.route('/')
 def home():
@@ -31,6 +43,14 @@ def home():
 def generate_content():
     if request.method == 'OPTIONS':
         return '', 204
+    
+    # Check if API key is set
+    if SARVAM_API_KEY == 'YOUR_API_KEY_HERE':
+        return jsonify({"error": "SARVAM_API_KEY environment variable is not set. Please set your API key."}), 500
+    
+    # Check if SarvamAI client is properly initialized
+    if sarvam_client is None:
+        return jsonify({"error": "SarvamAI client not initialized. Please check your API key."}), 500
     
     try:
         data = request.get_json()
@@ -97,9 +117,15 @@ def generate_content():
         iteration = 0
         
         while iteration < max_iterations:
+            print(f"Making API call to SarvamAI (iteration {iteration + 1})")
+            print(f"Using API key: {SARVAM_API_KEY[:10]}...")
+            print(f"Content type: {content_type}, Language: {language}")
+            
             chat_response = sarvam_client.chat.completions(messages=chat_message, temperature=temperature)
             new_text = chat_response.choices[0].message.content
             generated_text += new_text
+            
+            print(f"Received response: {len(new_text)} characters")
             
             if generated_text.strip().endswith(('.', '!', '?')):
                 break
