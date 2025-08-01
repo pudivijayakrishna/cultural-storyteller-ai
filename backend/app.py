@@ -1,8 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-from sarvamai import SarvamAI
-from sarvamai.models.chat_completion import ChatCompletionRequestMessage_UserParams
+from sarvamai import SarvamAI, ChatCompletionRequestMessage_UserParams
 from dotenv import load_dotenv
 from pydub import AudioSegment
 import io
